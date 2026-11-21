@@ -77,32 +77,37 @@ jobs:
       - name: Update the AltStore source
         if: github.ref == 'refs/heads/main'
         env:
-          GH_TOKEN: ${{ github.token }}
+          SOURCE_KEY: ${{ secrets.ALTSTORE_REPO_KEY }}
         run: |
           set -euo pipefail
-          # The source (AltStore / SideStore / Feather) lives on its own `altstore` branch so that
-          # main has no bot commits and the releases only contain the IPA. The previous file is
-          # carried forward to keep the version history.
-          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          rm -rf source
-          if git ls-remote --exit-code --heads "$REMOTE" altstore > /dev/null 2>&1; then
-            git clone --quiet --depth 1 --branch altstore "$REMOTE" source
-          else
-            git init -q source
-            git -C source checkout -q --orphan altstore
-            git -C source remote add origin "$REMOTE"
+          if [ -z "$SOURCE_KEY" ]; then
+            echo "::warning::ALTSTORE_REPO_KEY is not set, so the AltStore source was not updated"
+            exit 0
           fi
+          # The source lives in its own repository (<owner>/altstore-repo) and can list several apps.
+          # A deploy key that can write only to that repository is stored as the ALTSTORE_REPO_KEY secret.
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SOURCE_KEY" > ~/.ssh/altstore_key
+          chmod 600 ~/.ssh/altstore_key
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/altstore_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          rm -rf source
+          git clone --quiet --depth 1 "git@github.com:${GITHUB_REPOSITORY_OWNER}/altstore-repo.git" source
           python3 - <<'PY'
           import json, os
           repo, tag, label = os.environ["GITHUB_REPOSITORY"], os.environ["TAG"], os.environ["LABEL"]
           base = f"https://github.com/{repo}"
           icon = f"https://raw.githubusercontent.com/{repo}/main/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
-          ipa = "artifact/BudsBattery.ipa"
-          size = os.path.getsize(ipa)
+          size = os.path.getsize("artifact/BudsBattery.ipa")
           date = os.popen("date -u +%Y-%m-%d").read().strip()
           url = f"{base}/releases/download/{tag}/BudsBattery.ipa"
           blurb = "Battery levels of Samsung Galaxy Buds on iPhone: left earbud, right earbud and charging case."
           permission = "The app reads the battery level of your Galaxy Buds from their Bluetooth broadcast and connection."
+          bundle = "com.budsbattery.app"
+          source = json.load(open("source/altstore.json"))
+          app = next((a for a in source["apps"] if a.get("bundleIdentifier") == bundle), None)
+          if app is None:
+              app = {"bundleIdentifier": bundle}
+              source["apps"].append(app)
           entry = {
               "version": label,
               "buildVersion": os.environ["BUILD"],
@@ -112,50 +117,32 @@ jobs:
               "size": size,
               "minOSVersion": "16.0",
           }
-          versions = []
-          try:
-              versions = json.load(open("source/altstore.json"))["apps"][0].get("versions", [])
-          except (OSError, ValueError, KeyError, IndexError):
-              pass
-          versions = [entry] + [v for v in versions if v.get("version") != label][:19]
-          source = {
+          versions = [entry] + [v for v in app.get("versions", []) if v.get("version") != label][:19]
+          app.update({
               "name": "Buds Battery",
-              "identifier": "com.budsbattery.source",
-              "sourceURL": f"https://raw.githubusercontent.com/{repo}/altstore/altstore.json",
+              "developerName": repo.split("/")[0],
               "subtitle": "Galaxy Buds battery on iPhone",
-              "description": blurb,
+              "localizedDescription": blurb + "\n\nUnofficial, open source, no network access. Battery only: no ANC control, in-ear detection or charging state.",
               "iconURL": icon,
-              "website": base,
               "tintColor": "36C5B0",
-              "apps": [{
-                  "name": "Buds Battery",
-                  "bundleIdentifier": "com.budsbattery.app",
-                  "developerName": repo.split("/")[0],
-                  "subtitle": "Galaxy Buds battery on iPhone",
-                  "localizedDescription": blurb + "\n\nUnofficial, open source, no network access. Battery only: no ANC control, in-ear detection or charging state.",
-                  "iconURL": icon,
-                  "tintColor": "36C5B0",
-                  "category": "utilities",
-                  "screenshotURLs": [],
-                  "versions": versions,
-                  # fields read by older AltStore versions
-                  "version": label,
-                  "versionDate": date,
-                  "versionDescription": f"Version {label}",
-                  "downloadURL": url,
-                  "size": size,
-                  "appPermissions": {"entitlements": [], "privacy": {"NSBluetoothAlwaysUsageDescription": permission}},
-              }],
-              "news": [],
-          }
+              "category": "utilities",
+              "screenshotURLs": [],
+              "versions": versions,
+              # fields read by older AltStore versions
+              "version": label,
+              "versionDate": date,
+              "versionDescription": f"Version {label}",
+              "downloadURL": url,
+              "size": size,
+              "appPermissions": {"entitlements": [], "privacy": {"NSBluetoothAlwaysUsageDescription": permission}},
+          })
           json.dump(source, open("source/altstore.json", "w"), indent=2, ensure_ascii=False)
           PY
           python3 -m json.tool source/altstore.json > /dev/null
-          printf '%s\n' "Generated by CI. This branch only holds altstore.json, the AltStore / SideStore / Feather source. Do not edit." > source/README.md
           cd source
-          git add altstore.json README.md
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Add $LABEL"
-          git push -q origin HEAD:altstore
+          git add altstore.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Buds Battery $LABEL"
+          git push -q origin HEAD:main
       - name: Build log
         if: always()
         uses: actions/upload-artifact@v4
