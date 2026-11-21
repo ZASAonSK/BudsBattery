@@ -66,7 +66,7 @@ https://github.com/ZASAonSK/BudsBattery/releases/latest/download/altstore.json
 
 Download `BudsBattery-<version>-unsigned.ipa` from the latest [Release](../../releases/latest) and open it with Feather, AltStore, SideStore, Sideloadly or TrollStore. LiveContainer can import the IPA as well, but Bluetooth access inside it is untested (the permission comes from the host app).
 
-Every push to `main` also builds an IPA, available as an artifact of the *Build iOS IPA* run under *Actions*. Bluetooth permission is requested on first launch.
+Bluetooth permission is requested on first launch.
 
 ## Limitations
 
@@ -96,6 +96,16 @@ Run the decoder and history tests anywhere Swift runs (they only need Foundation
 ```sh
 swiftc Sources/BudsDecoder.swift Sources/History.swift Tests/main.swift -o /tmp/buds-tests && /tmp/buds-tests
 ```
+
+## Releasing
+
+Releases are fully automatic. Push to `main` and GitHub Actions tests, builds the IPA, creates the tag and the Release, and adds the new version to the source (`altstore.json`, history is kept).
+
+- **New version:** change `MARKETING_VERSION` in `project.yml` (and optionally add a `## <version>` section to `CHANGELOG.md`, which becomes the release notes) → release `v1.1.0`.
+- **Code change without a version bump:** the revision is numbered automatically → `v1.0.0.1`, `v1.0.0.2`, … so AltStore, SideStore and Feather still offer the update.
+- Changes that only touch `*.md`, `LICENSE` or `.gitignore` do not release anything.
+
+The build number is set by CI (the workflow run number), so only `MARKETING_VERSION` is ever edited by hand.
 
 ## Project layout
 
