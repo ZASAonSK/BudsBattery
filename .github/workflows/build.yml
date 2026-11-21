@@ -47,7 +47,67 @@ jobs:
         run: |
           set -euo pipefail
           [ "$GITHUB_REF_NAME" = "v$VERSION" ] || { echo "Tag $GITHUB_REF_NAME does not match version $VERSION in project.yml"; exit 1; }
-          gh release create "$GITHUB_REF_NAME" "artifact/BudsBattery-$VERSION-unsigned.ipa" --title "Buds Battery $VERSION" --generate-notes
+          export IPA="artifact/BudsBattery-$VERSION-unsigned.ipa"
+          export BUILD=$(sed -n 's/.*CURRENT_PROJECT_VERSION: \(.*\)/\1/p' project.yml)
+          # AltStore / SideStore / Feather source. The stable URL
+          # https://github.com/<repo>/releases/latest/download/altstore.json always serves the newest one.
+          python3 - <<'PY'
+          import json, os
+          repo, tag, version = os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_REF_NAME"], os.environ["VERSION"]
+          base = f"https://github.com/{repo}"
+          icon = f"https://raw.githubusercontent.com/{repo}/main/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
+          ipa = os.environ["IPA"]
+          size = os.path.getsize(ipa)
+          date = os.popen("date -u +%Y-%m-%d").read().strip()
+          url = f"{base}/releases/download/{tag}/{os.path.basename(ipa)}"
+          blurb = "Battery levels of Samsung Galaxy Buds on iPhone: left earbud, right earbud and charging case."
+          permission = "The app reads the battery level of your Galaxy Buds from their Bluetooth broadcast and connection."
+          source = {
+              "name": "Buds Battery",
+              "identifier": "com.budsbattery.source",
+              "sourceURL": f"{base}/releases/latest/download/altstore.json",
+              "subtitle": "Galaxy Buds battery on iPhone",
+              "description": blurb,
+              "iconURL": icon,
+              "website": base,
+              "tintColor": "36C5B0",
+              "apps": [{
+                  "name": "Buds Battery",
+                  "bundleIdentifier": "com.budsbattery.app",
+                  "developerName": repo.split("/")[0],
+                  "subtitle": "Galaxy Buds battery on iPhone",
+                  "localizedDescription": blurb + "\n\nUnofficial, open source, no network access. Battery only: no ANC control, in-ear detection or charging state.",
+                  "iconURL": icon,
+                  "tintColor": "36C5B0",
+                  "category": "utilities",
+                  "screenshotURLs": [],
+                  "versions": [{
+                      "version": version,
+                      "buildVersion": os.environ["BUILD"],
+                      "date": date,
+                      "localizedDescription": f"Version {version}. See the release notes on GitHub.",
+                      "downloadURL": url,
+                      "size": size,
+                      "minOSVersion": "16.0",
+                  }],
+                  # fields read by older AltStore versions
+                  "version": version,
+                  "versionDate": date,
+                  "versionDescription": f"Version {version}",
+                  "downloadURL": url,
+                  "size": size,
+                  "appPermissions": {"entitlements": [], "privacy": {"NSBluetoothAlwaysUsageDescription": permission}},
+              }],
+              "news": [],
+          }
+          json.dump(source, open("altstore.json", "w"), indent=2, ensure_ascii=False)
+          PY
+          python3 -m json.tool altstore.json > /dev/null
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$IPA" altstore.json --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$IPA" altstore.json --title "Buds Battery $VERSION" --generate-notes
+          fi
       - name: Build log
         if: always()
         uses: actions/upload-artifact@v4

@@ -46,12 +46,27 @@ The layout of the broadcast frame was **inferred from captured Galaxy Buds3 Pro 
 
 ## Install
 
-There is no App Store build. The app is distributed as an **unsigned IPA**:
+There is no App Store build. Buds Battery is distributed as an **unsigned IPA** that you sign with your own Apple ID or developer certificate. Requires **iOS 16 or later**.
 
-1. Download `BudsBattery-<version>-unsigned.ipa` from the latest [Release](../../releases/latest). (Every push to `main` also builds one, available as an artifact of the *Build iOS IPA* run under *Actions*.)
-2. Sign and install it with your own tool (e.g. Feather, AltStore, Sideloadly) and your own Apple ID or developer certificate.
+### Add the source (easiest, includes updates)
 
-Requires **iOS 16 or later**. Bluetooth permission is requested on first launch.
+Copy this URL:
+
+```
+https://github.com/ZASAonSK/BudsBattery/releases/latest/download/altstore.json
+```
+
+| App | Steps |
+| --- | --- |
+| **AltStore** | Browse → Sources → **+** → paste the URL |
+| **SideStore** | Sources → **+** → paste the URL |
+| **Feather** | Sources → **+** → paste the URL |
+
+### Install the IPA directly
+
+Download `BudsBattery-<version>-unsigned.ipa` from the latest [Release](../../releases/latest) and open it with Feather, AltStore, SideStore, Sideloadly or TrollStore. LiveContainer can import the IPA as well, but Bluetooth access inside it is untested (the permission comes from the host app).
+
+Every push to `main` also builds an IPA, available as an artifact of the *Build iOS IPA* run under *Actions*. Bluetooth permission is requested on first launch.
 
 ## Limitations
 
