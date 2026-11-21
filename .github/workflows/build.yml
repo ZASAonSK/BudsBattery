@@ -55,11 +55,11 @@ jobs:
           rm -rf Payload
           mkdir -p Payload artifact
           cp -R build/Build/Products/Release-iphoneos/BudsBattery.app Payload/
-          zip -qry "artifact/BudsBattery-$LABEL-unsigned.ipa" Payload
+          zip -qry artifact/BudsBattery.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: BudsBattery-${{ env.LABEL }}-unsigned-ipa
-          path: artifact/BudsBattery-${{ env.LABEL }}-unsigned.ipa
+          name: BudsBattery-${{ env.LABEL }}-ipa
+          path: artifact/BudsBattery.ipa
           if-no-files-found: error
       - name: Publish release
         if: github.ref == 'refs/heads/main'
@@ -67,22 +67,40 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export IPA="artifact/BudsBattery-$LABEL-unsigned.ipa"
-
-          # AltStore / SideStore / Feather source. The previous release's file is carried
-          # forward so the version history is kept. The stable URL
-          # https://github.com/<repo>/releases/latest/download/altstore.json serves the newest.
-          mkdir -p prev
-          gh release download --repo "$GITHUB_REPOSITORY" --pattern altstore.json --dir prev 2> /dev/null || true
+          # Release notes: the CHANGELOG section for a new version, otherwise generated from commits.
+          NOTES_ARGS=(--generate-notes)
+          if [ "$LABEL" = "$VERSION" ]; then
+            awk -v v="$VERSION" '/^## /{p = index($0, "## " v) == 1; next} p' CHANGELOG.md > notes.md
+            if [ -n "$(tr -d '[:space:]' < notes.md)" ]; then NOTES_ARGS=(--notes-file notes.md); fi
+          fi
+          gh release create "$TAG" artifact/BudsBattery.ipa --target "$GITHUB_SHA" --title "Buds Battery $LABEL" "${NOTES_ARGS[@]}"
+      - name: Update the AltStore source
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The source (AltStore / SideStore / Feather) lives on its own `altstore` branch so that
+          # main has no bot commits and the releases only contain the IPA. The previous file is
+          # carried forward to keep the version history.
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          rm -rf source
+          if git ls-remote --exit-code --heads "$REMOTE" altstore > /dev/null 2>&1; then
+            git clone --quiet --depth 1 --branch altstore "$REMOTE" source
+          else
+            git init -q source
+            git -C source checkout -q --orphan altstore
+            git -C source remote add origin "$REMOTE"
+          fi
           python3 - <<'PY'
           import json, os
           repo, tag, label = os.environ["GITHUB_REPOSITORY"], os.environ["TAG"], os.environ["LABEL"]
           base = f"https://github.com/{repo}"
           icon = f"https://raw.githubusercontent.com/{repo}/main/Assets.xcassets/AppIcon.appiconset/icon-1024.png"
-          ipa = os.environ["IPA"]
+          ipa = "artifact/BudsBattery.ipa"
           size = os.path.getsize(ipa)
           date = os.popen("date -u +%Y-%m-%d").read().strip()
-          url = f"{base}/releases/download/{tag}/{os.path.basename(ipa)}"
+          url = f"{base}/releases/download/{tag}/BudsBattery.ipa"
           blurb = "Battery levels of Samsung Galaxy Buds on iPhone: left earbud, right earbud and charging case."
           permission = "The app reads the battery level of your Galaxy Buds from their Bluetooth broadcast and connection."
           entry = {
@@ -96,15 +114,14 @@ jobs:
           }
           versions = []
           try:
-              old = json.load(open("prev/altstore.json"))
-              versions = old["apps"][0].get("versions", [])
+              versions = json.load(open("source/altstore.json"))["apps"][0].get("versions", [])
           except (OSError, ValueError, KeyError, IndexError):
               pass
           versions = [entry] + [v for v in versions if v.get("version") != label][:19]
           source = {
               "name": "Buds Battery",
               "identifier": "com.budsbattery.source",
-              "sourceURL": f"{base}/releases/latest/download/altstore.json",
+              "sourceURL": f"https://raw.githubusercontent.com/{repo}/altstore/altstore.json",
               "subtitle": "Galaxy Buds battery on iPhone",
               "description": blurb,
               "iconURL": icon,
@@ -131,17 +148,14 @@ jobs:
               }],
               "news": [],
           }
-          json.dump(source, open("altstore.json", "w"), indent=2, ensure_ascii=False)
+          json.dump(source, open("source/altstore.json", "w"), indent=2, ensure_ascii=False)
           PY
-          python3 -m json.tool altstore.json > /dev/null
-
-          # Release notes: the CHANGELOG section for a new version, otherwise generated from commits.
-          NOTES_ARGS=(--generate-notes)
-          if [ "$LABEL" = "$VERSION" ]; then
-            awk -v v="$VERSION" '/^## /{p = index($0, "## " v) == 1; next} p' CHANGELOG.md > notes.md
-            if [ -n "$(tr -d '[:space:]' < notes.md)" ]; then NOTES_ARGS=(--notes-file notes.md); fi
-          fi
-          gh release create "$TAG" "$IPA" altstore.json --target "$GITHUB_SHA" --title "Buds Battery $LABEL" "${NOTES_ARGS[@]}"
+          python3 -m json.tool source/altstore.json > /dev/null
+          printf '%s\n' "Generated by CI. This branch only holds altstore.json, the AltStore / SideStore / Feather source. Do not edit." > source/README.md
+          cd source
+          git add altstore.json README.md
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Add $LABEL"
+          git push -q origin HEAD:altstore
       - name: Build log
         if: always()
         uses: actions/upload-artifact@v4

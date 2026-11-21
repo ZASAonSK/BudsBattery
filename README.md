@@ -48,25 +48,34 @@ The layout of the broadcast frame was **inferred from captured Galaxy Buds3 Pro 
 
 There is no App Store build. Buds Battery is distributed as an **unsigned IPA** that you sign with your own Apple ID or developer certificate. Requires **iOS 16 or later**.
 
-### Add the source (easiest, includes updates)
+Tap a button on your iPhone. It opens the app and adds the source (or, for LiveContainer, downloads the IPA):
 
-Copy this URL:
+<table align="center">
+  <tr>
+    <td align="center" width="140">
+      <a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://raw.githubusercontent.com/ZASAonSK/BudsBattery/altstore/altstore.json"><img src="https://raw.githubusercontent.com/altstoreio/AltStore/56854e66fef2eac32dad88dcbad1dc131d430e60/AltStore/Resources/Icons.xcassets/Classic/Original.appiconset/Group%2023.png" width="72" alt="Add to AltStore"><br><sub><b>Add to AltStore</b></sub></a>
+    </td>
+    <td align="center" width="140">
+      <a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://raw.githubusercontent.com/ZASAonSK/BudsBattery/altstore/altstore.json"><img src="https://raw.githubusercontent.com/SideStore/SideStore/4f3d18d98c5fbee72c80f787ceb2e8e09ded60a6/AltStore/Resources/Icons.xcassets/AppIcon.appiconset/1024.png" width="72" alt="Add to SideStore"><br><sub><b>Add to SideStore</b></sub></a>
+    </td>
+    <td align="center" width="140">
+      <a href="https://intradeus.github.io/http-protocol-redirector?r=feather://source/https://raw.githubusercontent.com/ZASAonSK/BudsBattery/altstore/altstore.json"><img src="https://raw.githubusercontent.com/claration/feather/d264a7641dc948630b31af4b6d7f85249a198515/Feather/Resources/Assets.xcassets/AppIcon.appiconset/feather.png" width="72" alt="Add to Feather"><br><sub><b>Add to Feather</b></sub></a>
+    </td>
+    <td align="center" width="140">
+      <a href="https://intradeus.github.io/http-protocol-redirector?r=livecontainer://install?url=https://github.com/ZASAonSK/BudsBattery/releases/latest/download/BudsBattery.ipa"><img src="https://raw.githubusercontent.com/LiveContainer/LiveContainer/b0f53e8934df325970e9b6ff52932a43b585c424/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png" width="72" alt="Install in LiveContainer"><br><sub><b>Install in LiveContainer</b></sub></a>
+    </td>
+  </tr>
+</table>
+
+The buttons open the app through a small redirect page (`intradeus.github.io/http-protocol-redirector`), because GitHub does not allow links that start with `altstore://`. If a button does nothing, add the source by hand: copy this URL and paste it into **Sources → +** in AltStore, SideStore or Feather.
 
 ```
-https://github.com/ZASAonSK/BudsBattery/releases/latest/download/altstore.json
+https://raw.githubusercontent.com/ZASAonSK/BudsBattery/altstore/altstore.json
 ```
 
-| App | Steps |
-| --- | --- |
-| **AltStore** | Browse → Sources → **+** → paste the URL |
-| **SideStore** | Sources → **+** → paste the URL |
-| **Feather** | Sources → **+** → paste the URL |
+You can also download the IPA directly from the latest [Release](../../releases/latest) (`BudsBattery.ipa`) and open it with Sideloadly, TrollStore or any other signing tool. Bluetooth permission is requested on first launch.
 
-### Install the IPA directly
-
-Download `BudsBattery-<version>-unsigned.ipa` from the latest [Release](../../releases/latest) and open it with Feather, AltStore, SideStore, Sideloadly or TrollStore. LiveContainer can import the IPA as well, but Bluetooth access inside it is untested (the permission comes from the host app).
-
-Bluetooth permission is requested on first launch.
+LiveContainer installs the IPA, but Bluetooth access inside it is untested (the permission comes from the host app). LiveContainer does not read sources.
 
 ## Limitations
 
@@ -99,7 +108,7 @@ swiftc Sources/BudsDecoder.swift Sources/History.swift Tests/main.swift -o /tmp/
 
 ## Releasing
 
-Releases are fully automatic. Push to `main` and GitHub Actions tests, builds the IPA, creates the tag and the Release, and adds the new version to the source (`altstore.json`, history is kept).
+Releases are fully automatic. Push to `main` and GitHub Actions tests, builds the IPA, creates the tag and the Release, and adds the new version to the source (the `altstore` branch, history is kept).
 
 - **New version:** change `MARKETING_VERSION` in `project.yml` (and optionally add a `## <version>` section to `CHANGELOG.md`, which becomes the release notes) → release `v1.1.0`.
 - **Code change without a version bump:** the revision is numbered automatically → `v1.0.0.1`, `v1.0.0.2`, … so AltStore, SideStore and Feather still offer the update.
