@@ -2,9 +2,10 @@ name: Build iOS IPA
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write   # only used to publish a release for a v* tag
 jobs:
   build:
     # Xcode 26 on macos-26 provides the Liquid Glass SDK.
@@ -12,6 +13,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+      - name: Read version
+        run: |
+          VERSION=$(sed -n 's/.*MARKETING_VERSION: "\(.*\)"/\1/p' project.yml)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Test decoder
         run: |
           set -euo pipefail
@@ -29,12 +34,20 @@ jobs:
           rm -rf Payload
           mkdir -p Payload artifact
           cp -R build/Build/Products/Release-iphoneos/BudsBattery.app Payload/
-          zip -qry artifact/BudsBattery-1.0.0-unsigned.ipa Payload
+          zip -qry "artifact/BudsBattery-$VERSION-unsigned.ipa" Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: BudsBattery-1.0.0-unsigned-ipa
-          path: artifact/BudsBattery-1.0.0-unsigned.ipa
+          name: BudsBattery-${{ env.VERSION }}-unsigned-ipa
+          path: artifact/BudsBattery-${{ env.VERSION }}-unsigned.ipa
           if-no-files-found: error
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF_NAME" = "v$VERSION" ] || { echo "Tag $GITHUB_REF_NAME does not match version $VERSION in project.yml"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" "artifact/BudsBattery-$VERSION-unsigned.ipa" --title "Buds Battery $VERSION" --generate-notes
       - name: Build log
         if: always()
         uses: actions/upload-artifact@v4

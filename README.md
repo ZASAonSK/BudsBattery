@@ -46,10 +46,10 @@ The layout of the broadcast frame was **inferred from captured Galaxy Buds3 Pro 
 
 ## Install
 
-There is no App Store build. Each push to `main` builds an **unsigned IPA** with GitHub Actions:
+There is no App Store build. The app is distributed as an **unsigned IPA**:
 
-1. Open the latest run of **Build iOS IPA** under the *Actions* tab and download the `BudsBattery-…-unsigned-ipa` artifact.
-2. Unzip it and sign/install the `.ipa` with your own tool (e.g. Feather, AltStore, Sideloadly) and your own Apple ID or developer certificate.
+1. Download `BudsBattery-<version>-unsigned.ipa` from the latest [Release](../../releases/latest). (Every push to `main` also builds one, available as an artifact of the *Build iOS IPA* run under *Actions*.)
+2. Sign and install it with your own tool (e.g. Feather, AltStore, Sideloadly) and your own Apple ID or developer certificate.
 
 Requires **iOS 16 or later**. Bluetooth permission is requested on first launch.
 

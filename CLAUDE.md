@@ -26,4 +26,4 @@ Small SwiftUI iOS 16+ app ("Buds Battery") showing Galaxy Buds left/right/case b
 
 - GalaxyBudsClient uses RFCOMM/SPP, which iOS does not allow third-party apps to open; ANC, wear detection and charging state are therefore out of scope (a TrollStore/private-API investigation found nothing more than a single battery percentage). Don't display state that isn't backed by real data.
 - Keep iOS 17+/26+ APIs behind `#available`; deployment target is iOS 16.
-- Version lives in `project.yml`; on release also update the IPA name in the workflow and CHANGELOG. CI runs on `macos-26`.
+- Version lives only in `project.yml` (`MARKETING_VERSION`); CI reads it for the IPA name. To release: bump the version, update CHANGELOG, then `git tag v<version> && git push origin v<version>` — CI builds and attaches the IPA to a GitHub Release (it fails if the tag and version differ). CI runs on `macos-26`.
