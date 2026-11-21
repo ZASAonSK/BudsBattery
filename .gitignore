@@ -1,0 +1,6 @@
+build/
+Payload/
+artifact/
+*.xcodeproj/
+.DS_Store
+build.log

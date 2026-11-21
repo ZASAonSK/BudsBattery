@@ -1,0 +1,44 @@
+name: Build iOS IPA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    # Xcode 26 on macos-26 provides the Liquid Glass SDK.
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test decoder
+        run: |
+          set -euo pipefail
+          swiftc Sources/BudsDecoder.swift Sources/History.swift Tests/main.swift -o /tmp/buds-tests
+          /tmp/buds-tests
+      - name: Install XcodeGen
+        run: command -v xcodegen || brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build unsigned IPA
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -project BudsBattery.xcodeproj -scheme BudsBattery -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | tee build.log
+          rm -rf Payload
+          mkdir -p Payload artifact
+          cp -R build/Build/Products/Release-iphoneos/BudsBattery.app Payload/
+          zip -qry artifact/BudsBattery-1.0.0-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BudsBattery-1.0.0-unsigned-ipa
+          path: artifact/BudsBattery-1.0.0-unsigned.ipa
+          if-no-files-found: error
+      - name: Build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
